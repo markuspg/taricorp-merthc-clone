@@ -12,7 +12,7 @@ llvm-sys = "40"
 libc = "0.2"
 log = "0.4"
 phf = "0.7"
-tempfile = "2"
+tempfile = "3"
 serde = { version = "1.0.229", features = ["derive"] }
 
 [build-dependencies]
