@@ -39,7 +39,7 @@ extern "C" {
     );
 }
 
-const USAGE: &'static str = "
+const USAGE: &str = "
 Usage: merthc [options] [<source>]
        merthc --help
 
@@ -94,7 +94,9 @@ fn main() {
         panic!("--no-rt and --emit link options may not be used together");
     };
 
-    let outpath = if outpath.is_none() {
+    let outpath = if let Some(outpath) = outpath {
+        outpath
+    } else {
         // Select a default output filename
         let inpath_base: String = if emit == Emit::Link && inpath.is_none() {
             (if cfg!(target_os = "windows") {
@@ -121,12 +123,10 @@ fn main() {
             }
         };
         inpath_base + outpath_suffix
-    } else {
-        outpath.unwrap()
     };
 
     let mut s = String::new();
-    let mut infile: Box<Read> = match inpath {
+    let mut infile: Box<dyn Read> = match inpath {
         None => Box::new(std::io::stdin()),
         Some(p) => Box::new(File::open(p).expect("Failed to open input file")),
     };
@@ -407,12 +407,14 @@ fn module_from_blob(ctxt: LLVMContextRef, code: &[u8]) -> Result<LLVMModuleRef, 
             1,
         );
 
-        let mut module: LLVMModuleRef = mem::uninitialized();
-        let mut err_msg: *mut i8 = mem::uninitialized();
+        let mut module = mem::MaybeUninit::uninit();
+        let mut err_msg = mem::MaybeUninit::uninit();
 
         // ParseIRInContext takes ownership of the input memory buffer.
         // We should not dispose of it.
-        let result = LLVMParseIRInContext(ctxt, mbuf, &mut module, &mut err_msg);
+        let result = LLVMParseIRInContext(ctxt, mbuf, module.as_mut_ptr(), err_msg.as_mut_ptr());
+        let module = module.assume_init();
+        let err_msg = err_msg.assume_init();
 
         if result != 0 {
             Err(CStr::from_ptr(err_msg).to_string_lossy().into_owned())
@@ -445,7 +447,7 @@ fn optimize_lto(llmod: LLVMModuleRef, externals: &[&[u8]]) -> LLVMModuleRef {
     // Mark all functions except externals as private
     unsafe {
         let mut func = LLVMGetFirstFunction(llmod);
-        while func != ptr::null_mut() {
+        while !func.is_null() {
             let func_name = CStr::from_ptr(LLVMGetValueName(func));
             if !externals.contains(&func_name.to_bytes()) {
                 debug!(
@@ -459,7 +461,7 @@ fn optimize_lto(llmod: LLVMModuleRef, externals: &[&[u8]]) -> LLVMModuleRef {
         }
 
         let mut glob = LLVMGetFirstGlobal(llmod);
-        while glob != ptr::null_mut() {
+        while !glob.is_null() {
             let glob_name = CStr::from_ptr(LLVMGetValueName(glob));
             if !externals.contains(&glob_name.to_bytes()) {
                 debug!(
@@ -509,7 +511,7 @@ fn optimize_module(llmod: LLVMModuleRef) -> LLVMModuleRef {
         // Iterate over functions, running the FPM over each
         LLVMInitializeFunctionPassManager(fpm);
         let mut func = LLVMGetFirstFunction(llmod);
-        while func != ptr::null_mut() {
+        while !func.is_null() {
             LLVMRunFunctionPassManager(fpm, func);
             func = LLVMGetNextFunction(func);
         }
@@ -540,8 +542,9 @@ fn write_target_code<W: std::io::Write>(
 
     let triple = triple.as_ptr();
     unsafe {
-        let mut target = mem::uninitialized();
-        LLVMGetTargetFromTriple(triple, &mut target, ptr::null_mut());
+        let mut target = mem::MaybeUninit::uninit();
+        LLVMGetTargetFromTriple(triple, target.as_mut_ptr(), ptr::null_mut());
+        let target = target.assume_init();
         let tm = LLVMCreateTargetMachine(
             target,
             triple,
@@ -552,8 +555,9 @@ fn write_target_code<W: std::io::Write>(
             LLVMCodeModelDefault,
         );
 
-        let mut mbuf: LLVMMemoryBufferRef = mem::uninitialized();
-        LLVMTargetMachineEmitToMemoryBuffer(tm, llmod, ty, ptr::null_mut(), &mut mbuf);
+        let mut mbuf = mem::MaybeUninit::uninit();
+        LLVMTargetMachineEmitToMemoryBuffer(tm, llmod, ty, ptr::null_mut(), mbuf.as_mut_ptr());
+        let mbuf = mbuf.assume_init();
         let out = w.write_all(membuf_as_slice(&mbuf));
 
         LLVMDisposeMemoryBuffer(mbuf);
@@ -563,7 +567,7 @@ fn write_target_code<W: std::io::Write>(
 }
 
 /// Get a slice over the contents of a LLVM memory buffer.
-fn membuf_as_slice<'a>(mbuf: &'a LLVMMemoryBufferRef) -> &'a [u8] {
+fn membuf_as_slice(mbuf: &LLVMMemoryBufferRef) -> &[u8] {
     unsafe {
         let p = LLVMGetBufferStart(*mbuf);
         let len = LLVMGetBufferSize(*mbuf);
@@ -574,7 +578,7 @@ fn membuf_as_slice<'a>(mbuf: &'a LLVMMemoryBufferRef) -> &'a [u8] {
 // PHF mapping for target->runtime module files
 include!(concat!(env!("OUT_DIR"), "/rt_map.rs"));
 // Non-target-dependent files
-static RT_SOURCES: &'static [&'static [u8]] = &[include_bytes!("../runtime/random.ll")];
+static RT_SOURCES: &[&[u8]] = &[include_bytes!("../runtime/random.ll")];
 
 #[derive(Debug)]
 enum RuntimeLoadError {
@@ -600,7 +604,7 @@ fn load_runtime_for_target(
 
     for irmod in RT_SOURCES {
         debug!("Loading a module from RT_SOURCES");
-        let mut llmod = try!(module_from_blob(ctxt, irmod));
+        let mut llmod = module_from_blob(ctxt, irmod)?;
         if optimize {
             llmod = optimize_module(llmod)
         }
@@ -616,7 +620,7 @@ fn load_runtime_for_target(
         Some(s) => *s,
         None => return Err(RuntimeLoadError::NoSuchPlatform),
     };
-    let mut target_rt = try!(module_from_blob(ctxt, target_rt_source));
+    let mut target_rt = module_from_blob(ctxt, target_rt_source)?;
     if optimize {
         target_rt = optimize_module(target_rt);
     }
