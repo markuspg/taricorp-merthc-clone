@@ -14,6 +14,7 @@ log = "0.4"
 phf = "0.7"
 rustc-serialize = "0.3"
 tempfile = "2"
+serde = { version = "1.0.229", features = ["derive"] }
 
 [build-dependencies]
 cc = "1.11.1"
