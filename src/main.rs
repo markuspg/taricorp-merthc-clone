@@ -73,7 +73,7 @@ enum Emit {
 }
 
 fn main() {
-    env_logger::init().unwrap();
+    env_logger::init();
     let Args {
         flag_no_opt: no_optimize,
         flag_no_rt: no_rt,
