@@ -94,7 +94,9 @@ fn main() {
         panic!("--no-rt and --emit link options may not be used together");
     };
 
-    let outpath = if outpath.is_none() {
+    let outpath = if let Some(outpath) = outpath {
+        outpath
+    } else {
         // Select a default output filename
         let inpath_base: String = if emit == Emit::Link && inpath.is_none() {
             (if cfg!(target_os = "windows") {
@@ -121,8 +123,6 @@ fn main() {
             }
         };
         inpath_base + outpath_suffix
-    } else {
-        outpath.unwrap()
     };
 
     let mut s = String::new();
