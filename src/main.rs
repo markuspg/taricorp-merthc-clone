@@ -571,7 +571,7 @@ fn membuf_as_slice(mbuf: &LLVMMemoryBufferRef) -> &[u8] {
     unsafe {
         let p = LLVMGetBufferStart(*mbuf);
         let len = LLVMGetBufferSize(*mbuf);
-        slice::from_raw_parts(p as *const _, len as usize)
+        slice::from_raw_parts(p as *const _, len)
     }
 }
 

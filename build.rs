@@ -29,7 +29,7 @@ fn main() {
 
 fn generate_runtime() {
     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("rt_map.rs");
-    let mut file = BufWriter::new(File::create(&path).unwrap());
+    let mut file = BufWriter::new(File::create(path).unwrap());
 
     write!(
         &mut file,
