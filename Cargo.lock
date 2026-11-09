@@ -8,7 +8,16 @@ version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "500909c4f87a9e52355b26626d890833e9e1d53ac566db76c36faa984b889699"
 dependencies = [
- "memchr",
+ "memchr 1.0.1",
+]
+
+[[package]]
+name = "aho-corasick"
+version = "1.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c982642fa9e8606056828ee9a8505737230110bb1099153c79efe865c59d12ba"
+dependencies = [
+ "memchr 2.8.3",
 ]
 
 [[package]]
@@ -23,13 +32,13 @@ dependencies = [
 
 [[package]]
 name = "docopt"
-version = "0.7.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab32ea6e284d87987066f21a9e809a73c14720571ef34516f0890b3d355ccfd8"
+checksum = "7f3f119846c823f9eafcf953a8f6ffb6ed69bf6240883261a7f13b634579a51f"
 dependencies = [
- "lazy_static",
- "regex",
- "rustc-serialize",
+ "lazy_static 1.5.1",
+ "regex 1.13.1",
+ "serde",
  "strsim",
 ]
 
@@ -40,7 +49,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3856f1697098606fc6cb97a93de88ca3f3bc35bb878c725920e6e82ecf05e83"
 dependencies = [
  "log 0.3.9",
- "regex",
+ "regex 0.2.1",
 ]
 
 [[package]]
@@ -72,6 +81,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b37545ab726dd833ec6420aaba8231c5b320814b9029ad585555d2a03e94fbf"
 
 [[package]]
+name = "lazy_static"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
+
+[[package]]
 name = "libc"
 version = "0.2.191"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -84,9 +99,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cda6384f13044e8c721be4c7d557618bd8c7dc34fb5c134727d9581c835ab4bf"
 dependencies = [
  "gcc",
- "lazy_static",
+ "lazy_static 0.2.8",
  "libc",
- "regex",
+ "regex 0.2.1",
  "semver 0.6.0",
 ]
 
@@ -113,6 +128,12 @@ checksum = "1dbccc0e46f1ea47b9f17e6d67c5a96bd27030519c519c9c91327e31275a47b4"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "memchr"
+version = "2.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "merthc"
@@ -202,11 +223,34 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4278c17d0f6d62dfef0ab00028feb45bd7d2102843f80763474eeb1be8a10c01"
 dependencies = [
- "aho-corasick",
- "memchr",
- "regex-syntax",
+ "aho-corasick 0.6.3",
+ "memchr 1.0.1",
+ "regex-syntax 0.4.0",
  "thread_local",
  "utf8-ranges",
+]
+
+[[package]]
+name = "regex"
+version = "1.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f020237b6c8eed93db2e2cb53c00c60a8e1bc73da7d073199a1180401450218d"
+dependencies = [
+ "aho-corasick 1.1.5",
+ "memchr 2.8.3",
+ "regex-automata",
+ "regex-syntax 0.8.11",
+]
+
+[[package]]
+name = "regex-automata"
+version = "0.4.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad8553b9b26413251cbf30e620595c7a41b3887f03da04579c0e6b0d6a06b4b2"
+dependencies = [
+ "aho-corasick 1.1.5",
+ "memchr 2.8.3",
+ "regex-syntax 0.8.11",
 ]
 
 [[package]]
@@ -214,6 +258,12 @@ name = "regex-syntax"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f9191b1f57603095f105d317e375d19b1c9c5c3185ea9633a99a6dcbed04457"
+
+[[package]]
+name = "regex-syntax"
+version = "0.8.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "rustc-serialize"
@@ -295,9 +345,9 @@ checksum = "0df90a788073e8d0235a67e50441d47db7c8ad9debd91cbf43736a2a92d36537"
 
 [[package]]
 name = "strsim"
-version = "0.6.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4d15c810519a91cf877e7e36e63fe068815c678181439f2f29e2562147c3694"
+checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "syn"

@@ -5,7 +5,7 @@ extern crate libc;
 extern crate log;
 extern crate llvm_sys as llvm;
 extern crate phf;
-extern crate rustc_serialize;
+extern crate serde;
 extern crate tempfile;
 
 use docopt::Docopt;
@@ -55,7 +55,7 @@ Options:
                     incompatible with --emit link.
 ";
 
-#[derive(Debug, RustcDecodable)]
+#[derive(Debug, serde::Deserialize)]
 struct Args {
     flag_emit: Option<Emit>,
     flag_no_opt: Option<bool>,
@@ -64,7 +64,7 @@ struct Args {
     arg_outfile: Option<String>,
 }
 
-#[derive(PartialEq, Eq, Debug, RustcDecodable)]
+#[derive(PartialEq, Eq, Debug, serde::Deserialize)]
 enum Emit {
     Asm,
     Ir,
@@ -84,7 +84,7 @@ fn main() {
         .expect("USAGE string is invalid")
         .help(true)
         .argv(std::env::args())
-        .decode()
+        .deserialize()
         .unwrap_or_else(|e| e.exit());
 
     let emit = emit.unwrap_or(Emit::Link);
