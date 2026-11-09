@@ -1,4 +1,4 @@
-extern crate gcc;
+extern crate cc;
 extern crate phf_codegen;
 
 use std::fs::File;
@@ -54,7 +54,7 @@ fn build_cpp_helpers() {
         .expect("llvm-config emitted invalid UTF-8")
         .trim();
 
-    let mut cc = gcc::Config::new();
+    let mut cc = cc::Build::new();
     for word in cfg.split(' ').filter(|s| !s.is_empty()) {
         cc.flag(word);
     }
