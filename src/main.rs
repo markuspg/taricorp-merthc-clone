@@ -563,7 +563,7 @@ fn write_target_code<W: std::io::Write>(
 }
 
 /// Get a slice over the contents of a LLVM memory buffer.
-fn membuf_as_slice<'a>(mbuf: &'a LLVMMemoryBufferRef) -> &'a [u8] {
+fn membuf_as_slice(mbuf: &LLVMMemoryBufferRef) -> &[u8] {
     unsafe {
         let p = LLVMGetBufferStart(*mbuf);
         let len = LLVMGetBufferSize(*mbuf);
