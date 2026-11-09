@@ -18,4 +18,3 @@ tempfile = "2"
 [build-dependencies]
 cc = "1.11.1"
 phf_codegen = "0.7"
-gcc = "0.3"

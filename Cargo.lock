@@ -112,7 +112,6 @@ dependencies = [
  "cc",
  "docopt",
  "env_logger",
- "gcc",
  "libc",
  "llvm-sys",
  "log",
