@@ -1,19 +1,25 @@
 extern crate gcc;
 extern crate phf_codegen;
 
-use std::{env, str};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::process::Command;
+use std::{env, str};
 
 macro_rules! rt_file {
-    ($phf:expr, $triple:expr, $file:expr) => (
-        $phf.entry($triple, concat!("br####\"", concat!(
-            include_str!(concat!("runtime/", concat!($file, ".ll"))),
-            "\"####"
-        )))
-    )
+    ($phf:expr, $triple:expr, $file:expr) => {
+        $phf.entry(
+            $triple,
+            concat!(
+                "br####\"",
+                concat!(
+                    include_str!(concat!("runtime/", concat!($file, ".ll"))),
+                    "\"####"
+                )
+            ),
+        )
+    };
 }
 
 fn main() {
@@ -25,9 +31,11 @@ fn generate_runtime() {
     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("rt_map.rs");
     let mut file = BufWriter::new(File::create(&path).unwrap());
 
-    write!(&mut file,
-           "static RT_TARGET_SOURCES: phf::Map<&'static str, &'static [u8]> =")
-            .unwrap();
+    write!(
+        &mut file,
+        "static RT_TARGET_SOURCES: phf::Map<&'static str, &'static [u8]> ="
+    )
+    .unwrap();
     let mut phf = phf_codegen::Map::new();
 
     rt_file!(phf, "x86_64-unknown-linux-gnu", "linux-x86_64");

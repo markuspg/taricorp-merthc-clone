@@ -9,21 +9,22 @@ extern crate rustc_serialize;
 extern crate tempfile;
 
 use docopt::Docopt;
-use std::{mem, slice, ptr};
-use std::fs::{File, OpenOptions};
 use std::ffi::{CStr, CString};
+use std::fs::{File, OpenOptions};
 use std::io::Read;
 use std::process::Command;
+use std::{mem, ptr, slice};
 use tempfile::NamedTempFile;
 
 use llvm::core::*;
 use llvm::ir_reader::LLVMParseIRInContext;
-use llvm::target::{LLVM_InitializeNativeTarget, LLVM_InitializeNativeAsmPrinter,
-                   LLVM_InitializeNativeAsmParser};
-use llvm::target_machine::{LLVMCodeGenFileType, LLVMGetDefaultTargetTriple};
-use llvm::target_machine::LLVMCodeGenFileType::*;
-use llvm::LLVMLinkage;
 use llvm::prelude::*;
+use llvm::target::{
+    LLVM_InitializeNativeAsmParser, LLVM_InitializeNativeAsmPrinter, LLVM_InitializeNativeTarget,
+};
+use llvm::target_machine::LLVMCodeGenFileType::*;
+use llvm::target_machine::{LLVMCodeGenFileType, LLVMGetDefaultTargetTriple};
+use llvm::LLVMLinkage;
 
 extern "C" {
     /// Get the textual representation of a module's IR, passed by chunks to
@@ -31,9 +32,11 @@ extern "C" {
     ///
     /// Calls `cb` with a pointer to data, the length of that data and a pointer
     /// to some user-defined data (passed to the initial function as `cb_data`).
-    fn PrintModuleIR(m: LLVMModuleRef,
-                     cb: extern "C" fn(*const u8, libc::size_t, *mut libc::c_void) -> libc::c_int,
-                     cb_data: *mut libc::c_void);
+    fn PrintModuleIR(
+        m: LLVMModuleRef,
+        cb: extern "C" fn(*const u8, libc::size_t, *mut libc::c_void) -> libc::c_int,
+        cb_data: *mut libc::c_void,
+    );
 }
 
 const USAGE: &'static str = "
@@ -71,11 +74,13 @@ enum Emit {
 
 fn main() {
     env_logger::init().unwrap();
-    let Args { flag_no_opt: no_optimize,
-               flag_no_rt: no_rt,
-               flag_emit: emit,
-               arg_source: inpath,
-               arg_outfile: outpath } = Docopt::new(USAGE)
+    let Args {
+        flag_no_opt: no_optimize,
+        flag_no_rt: no_rt,
+        flag_emit: emit,
+        arg_source: inpath,
+        arg_outfile: outpath,
+    } = Docopt::new(USAGE)
         .expect("USAGE string is invalid")
         .help(true)
         .argv(std::env::args())
@@ -93,14 +98,15 @@ fn main() {
         // Select a default output filename
         let inpath_base: String = if emit == Emit::Link && inpath.is_none() {
             (if cfg!(target_os = "windows") {
-                     "a.exe"
-                 } else {
-                     "a.out"
-                 })
-                .into()
+                "a.exe"
+            } else {
+                "a.out"
+            })
+            .into()
         } else {
-            inpath.clone().map_or("out".into(),
-                                  |s| s[0..s.rfind('.').unwrap_or(s.len())].into())
+            inpath.clone().map_or("out".into(), |s| {
+                s[0..s.rfind('.').unwrap_or(s.len())].into()
+            })
         };
         let outpath_suffix = match emit {
             Emit::Asm => ".S",
@@ -124,7 +130,9 @@ fn main() {
         None => Box::new(std::io::stdin()),
         Some(p) => Box::new(File::open(p).expect("Failed to open input file")),
     };
-    infile.read_to_string(&mut s).expect("Failed to read source code");
+    infile
+        .read_to_string(&mut s)
+        .expect("Failed to read source code");
 
     let mut oo = OpenOptions::new();
     oo.create(true).write(true);
@@ -134,15 +142,18 @@ fn main() {
         use std::os::unix::fs::OpenOptionsExt;
         oo.mode(0o777);
     }
-    let outfile = oo.open(outpath).expect("Failed to open output file for writing");
+    let outfile = oo
+        .open(outpath)
+        .expect("Failed to open output file for writing");
 
     do_compile(s.chars(), outfile, emit, optimize, use_runtime);
 }
 
 /// Do compilation of source, emitting the requested output format to `out`.
 fn do_compile<I, W>(source: I, mut out: W, emit: Emit, optimize: bool, use_runtime: bool)
-    where I: Iterator<Item = char>,
-          W: std::io::Write
+where
+    I: Iterator<Item = char>,
+    W: std::io::Write,
 {
     unsafe {
         LLVM_InitializeNativeTarget();
@@ -156,14 +167,16 @@ fn do_compile<I, W>(source: I, mut out: W, emit: Emit, optimize: bool, use_runti
     let runtime_modules = if use_runtime {
         // Load runtime files and maybe optimize them individually.
         Some(match load_runtime_for_target(ctxt, &target, optimize) {
-                 Ok(x) => x,
-                 Err(RuntimeLoadError::NoSuchPlatform) => {
-            println!("Runtime for platform '{}' has no implementation. Sorry!",
-                     target.to_string_lossy());
-            return;
-        }
-                 e => panic!("Invalid IR while loading runtime: {:?}", e),
-             })
+            Ok(x) => x,
+            Err(RuntimeLoadError::NoSuchPlatform) => {
+                println!(
+                    "Runtime for platform '{}' has no implementation. Sorry!",
+                    target.to_string_lossy()
+                );
+                return;
+            }
+            e => panic!("Invalid IR while loading runtime: {:?}", e),
+        })
     } else {
         None
     };
@@ -233,30 +246,36 @@ fn do_compile<I, W>(source: I, mut out: W, emit: Emit, optimize: bool, use_runti
 }
 
 /// Get a value which is a pointer to a static constant.
-fn ptr_to_const(llmod: LLVMModuleRef,
-                ty: LLVMTypeRef,
-                value: LLVMValueRef,
-                name: &[u8])
-                -> LLVMValueRef {
+fn ptr_to_const(
+    llmod: LLVMModuleRef,
+    ty: LLVMTypeRef,
+    value: LLVMValueRef,
+    name: &[u8],
+) -> LLVMValueRef {
     unsafe {
         let g = LLVMAddGlobal(llmod, ty, name.as_ptr() as *const _);
         LLVMSetInitializer(g, value);
         LLVMSetGlobalConstant(g, 1);
-        LLVMConstInBoundsGEP(g,
-                             [LLVMConstInt(LLVMIntTypeInContext(LLVMGetModuleContext(llmod),
-                                                                8),
-                                           0,
-                                           0)]
-                                     .as_ptr() as *mut _,
-                             0)
+        LLVMConstInBoundsGEP(
+            g,
+            [LLVMConstInt(
+                LLVMIntTypeInContext(LLVMGetModuleContext(llmod), 8),
+                0,
+                0,
+            )]
+            .as_ptr() as *mut _,
+            0,
+        )
     }
 }
 
 /// Compile a string of Merthese code in a new (assumed empty) function.
-fn compile_merthese<I: Iterator<Item = char>>(ctxt: LLVMContextRef,
-                                              llfn: LLVMValueRef,
-                                              llmod: LLVMModuleRef,
-                                              mut code: I) {
+fn compile_merthese<I: Iterator<Item = char>>(
+    ctxt: LLVMContextRef,
+    llfn: LLVMValueRef,
+    llmod: LLVMModuleRef,
+    mut code: I,
+) {
     unsafe {
         let bb_main = LLVMAppendBasicBlockInContext(ctxt, llfn, b"\0".as_ptr() as *const _);
         let b = LLVMCreateBuilderInContext(ctxt);
@@ -270,21 +289,27 @@ fn compile_merthese<I: Iterator<Item = char>>(ctxt: LLVMContextRef,
         let ty_rt_rand_string = LLVMFunctionType(ty_void, [ty_i8].as_ptr() as *mut _, 1, 0);
         let ty_rt_print = LLVMFunctionType(ty_void, [ty_i8p, ty_i8].as_ptr() as *mut _, 2, 0);
         // Runtime functions
-        let rt_rand_inrange = LLVMAddFunction(llmod,
-                                              b"rand_inrange\0".as_ptr() as *const _,
-                                              ty_rt_rand_inrange);
-        let rt_rand_string = LLVMAddFunction(llmod,
-                                             b"rand_string\0".as_ptr() as *const _,
-                                             ty_rt_rand_string);
+        let rt_rand_inrange = LLVMAddFunction(
+            llmod,
+            b"rand_inrange\0".as_ptr() as *const _,
+            ty_rt_rand_inrange,
+        );
+        let rt_rand_string = LLVMAddFunction(
+            llmod,
+            b"rand_string\0".as_ptr() as *const _,
+            ty_rt_rand_string,
+        );
         let rt_print = LLVMAddFunction(llmod, b"print\0".as_ptr() as *const _, ty_rt_print);
 
         // Constant ints
         let v_1i8 = LLVMConstInt(ty_i8, 1, 0);
         let v_5i8 = LLVMConstInt(ty_i8, 5, 0);
         // Parameter for print in 'm'
-        let v_merth = LLVMBuildGlobalStringPtr(b,
-                                               b"merth\0".as_ptr() as *const _,
-                                               b"MERTH\0".as_ptr() as *const _);
+        let v_merth = LLVMBuildGlobalStringPtr(
+            b,
+            b"merth\0".as_ptr() as *const _,
+            b"MERTH\0".as_ptr() as *const _,
+        );
         // Parameter for print in 'e'
         let v_newline = ptr_to_const(llmod, ty_i8, LLVMConstInt(ty_i8, 10, 0), b"NEWLINE\0");
         // Parameter for print in 'r'
@@ -294,45 +319,57 @@ fn compile_merthese<I: Iterator<Item = char>>(ctxt: LLVMContextRef,
             match c {
                 'm' => {
                     // Print "merth"
-                    LLVMBuildCall(b,
-                                  rt_print,
-                                  [v_merth, v_5i8].as_ptr() as *mut _,
-                                  2,
-                                  b"\0".as_ptr() as *const _);
+                    LLVMBuildCall(
+                        b,
+                        rt_print,
+                        [v_merth, v_5i8].as_ptr() as *mut _,
+                        2,
+                        b"\0".as_ptr() as *const _,
+                    );
                 }
                 'e' => {
                     // Print a newline
-                    LLVMBuildCall(b,
-                                  rt_print,
-                                  [v_newline, v_1i8].as_ptr() as *mut _,
-                                  2,
-                                  b"\0".as_ptr() as *const _);
+                    LLVMBuildCall(
+                        b,
+                        rt_print,
+                        [v_newline, v_1i8].as_ptr() as *mut _,
+                        2,
+                        b"\0".as_ptr() as *const _,
+                    );
                 }
                 'r' => {
                     // Print a space
-                    LLVMBuildCall(b,
-                                  rt_print,
-                                  [v_space, v_1i8].as_ptr() as *mut _,
-                                  2,
-                                  b"\0".as_ptr() as *const _);
+                    LLVMBuildCall(
+                        b,
+                        rt_print,
+                        [v_space, v_1i8].as_ptr() as *mut _,
+                        2,
+                        b"\0".as_ptr() as *const _,
+                    );
                 }
                 't' => {
                     // Print a random string of length in range [0, 13.4]
-                    let v_len = LLVMBuildCall(b, rt_rand_inrange,
-                                              [LLVMConstAdd(
-                                                  LLVMConstFPToUI(
-                                                      LLVMConstReal(LLVMFloatTypeInContext(ctxt),
-                                                                    13.4),
-                                                      ty_i8
-                                                  ),
-                                                  v_1i8
-                                              )].as_ptr() as *mut _,
-                                              1, b"\0".as_ptr() as *const _);
-                    LLVMBuildCall(b,
-                                  rt_rand_string,
-                                  [v_len].as_ptr() as *mut _,
-                                  1,
-                                  b"\0".as_ptr() as *const _);
+                    let v_len = LLVMBuildCall(
+                        b,
+                        rt_rand_inrange,
+                        [LLVMConstAdd(
+                            LLVMConstFPToUI(
+                                LLVMConstReal(LLVMFloatTypeInContext(ctxt), 13.4),
+                                ty_i8,
+                            ),
+                            v_1i8,
+                        )]
+                        .as_ptr() as *mut _,
+                        1,
+                        b"\0".as_ptr() as *const _,
+                    );
+                    LLVMBuildCall(
+                        b,
+                        rt_rand_string,
+                        [v_len].as_ptr() as *mut _,
+                        1,
+                        b"\0".as_ptr() as *const _,
+                    );
                 }
                 'h' => {
                     // Skip characters through the next 'h', or to end of input.
@@ -363,10 +400,12 @@ fn module_from_blob(ctxt: LLVMContextRef, code: &[u8]) -> Result<LLVMModuleRef, 
 
     unsafe {
         // Buffer length excludes the null terminator, confusingly.
-        let mbuf = LLVMCreateMemoryBufferWithMemoryRange(code.as_ptr() as *const _,
-                                                         code.len() - 1 as libc::size_t,
-                                                         b"\0".as_ptr() as *const _,
-                                                         1);
+        let mbuf = LLVMCreateMemoryBufferWithMemoryRange(
+            code.as_ptr() as *const _,
+            code.len() - 1 as libc::size_t,
+            b"\0".as_ptr() as *const _,
+            1,
+        );
 
         let mut module: LLVMModuleRef = mem::uninitialized();
         let mut err_msg: *mut i8 = mem::uninitialized();
@@ -409,8 +448,10 @@ fn optimize_lto(llmod: LLVMModuleRef, externals: &[&[u8]]) -> LLVMModuleRef {
         while func != ptr::null_mut() {
             let func_name = CStr::from_ptr(LLVMGetValueName(func));
             if !externals.contains(&func_name.to_bytes()) {
-                debug!("Marking function {} as private in LTO",
-                       &func_name.to_string_lossy());
+                debug!(
+                    "Marking function {} as private in LTO",
+                    &func_name.to_string_lossy()
+                );
                 LLVMSetLinkage(func, LLVMLinkage::LLVMPrivateLinkage);
             }
 
@@ -421,8 +462,10 @@ fn optimize_lto(llmod: LLVMModuleRef, externals: &[&[u8]]) -> LLVMModuleRef {
         while glob != ptr::null_mut() {
             let glob_name = CStr::from_ptr(LLVMGetValueName(glob));
             if !externals.contains(&glob_name.to_bytes()) {
-                debug!("Marking global {} as private in LTO",
-                       &glob_name.to_string_lossy());
+                debug!(
+                    "Marking global {} as private in LTO",
+                    &glob_name.to_string_lossy()
+                );
                 LLVMSetLinkage(glob, LLVMLinkage::LLVMPrivateLinkage);
             }
 
@@ -433,10 +476,10 @@ fn optimize_lto(llmod: LLVMModuleRef, externals: &[&[u8]]) -> LLVMModuleRef {
     unsafe {
         let pm = LLVMCreatePassManager();
         let pmb = LLVMPassManagerBuilderCreate();
-        LLVMPassManagerBuilderPopulateLTOPassManager(pmb,
-                                                     pm,
-                                                     1,  // Internalize
-                                                     1); // Run inliner
+        LLVMPassManagerBuilderPopulateLTOPassManager(
+            pmb, pm, 1, // Internalize
+            1,
+        ); // Run inliner
         LLVMPassManagerBuilderDispose(pmb);
 
         LLVMRunPassManager(pm, llmod);
@@ -484,27 +527,30 @@ fn optimize_module(llmod: LLVMModuleRef) -> LLVMModuleRef {
 }
 
 /// Write code for a module with the given target triple to a `io::Write`.
-fn write_target_code<W: std::io::Write>(triple: &CStr,
-                                        llmod: LLVMModuleRef,
-                                        ty: LLVMCodeGenFileType,
-                                        mut w: W)
-                                        -> std::io::Result<()> {
-    use llvm::target_machine::*;
+fn write_target_code<W: std::io::Write>(
+    triple: &CStr,
+    llmod: LLVMModuleRef,
+    ty: LLVMCodeGenFileType,
+    mut w: W,
+) -> std::io::Result<()> {
     use llvm::target_machine::LLVMCodeGenOptLevel::*;
-    use llvm::target_machine::LLVMRelocMode::*;
     use llvm::target_machine::LLVMCodeModel::*;
+    use llvm::target_machine::LLVMRelocMode::*;
+    use llvm::target_machine::*;
 
     let triple = triple.as_ptr();
     unsafe {
         let mut target = mem::uninitialized();
         LLVMGetTargetFromTriple(triple, &mut target, ptr::null_mut());
-        let tm = LLVMCreateTargetMachine(target,
-                                         triple,
-                                         b"\0".as_ptr() as *const _,
-                                         b"\0".as_ptr() as *const _,
-                                         LLVMCodeGenLevelAggressive,
-                                         LLVMRelocDefault,
-                                         LLVMCodeModelDefault);
+        let tm = LLVMCreateTargetMachine(
+            target,
+            triple,
+            b"\0".as_ptr() as *const _,
+            b"\0".as_ptr() as *const _,
+            LLVMCodeGenLevelAggressive,
+            LLVMRelocDefault,
+            LLVMCodeModelDefault,
+        );
 
         let mut mbuf: LLVMMemoryBufferRef = mem::uninitialized();
         LLVMTargetMachineEmitToMemoryBuffer(tm, llmod, ty, ptr::null_mut(), &mut mbuf);
@@ -545,10 +591,11 @@ impl From<LLVMError> for RuntimeLoadError {
 /// Load the runtime library for a given target triple.
 ///
 /// Optionally optimizes the modules individually.
-fn load_runtime_for_target(ctxt: LLVMContextRef,
-                           target: &CStr,
-                           optimize: bool)
-                           -> Result<Vec<LLVMModuleRef>, RuntimeLoadError> {
+fn load_runtime_for_target(
+    ctxt: LLVMContextRef,
+    target: &CStr,
+    optimize: bool,
+) -> Result<Vec<LLVMModuleRef>, RuntimeLoadError> {
     let mut rt_modules = Vec::with_capacity(RT_SOURCES.len() + 1);
 
     for irmod in RT_SOURCES {
@@ -561,8 +608,10 @@ fn load_runtime_for_target(ctxt: LLVMContextRef,
     }
     debug!("Loaded all from RT_SOURCES");
 
-    debug!("Loading RT_TARGET_SOURCES for {}",
-           &*target.to_string_lossy());
+    debug!(
+        "Loading RT_TARGET_SOURCES for {}",
+        &*target.to_string_lossy()
+    );
     let target_rt_source = match RT_TARGET_SOURCES.get(&*target.to_string_lossy()) {
         Some(s) => *s,
         None => return Err(RuntimeLoadError::NoSuchPlatform),
@@ -577,10 +626,11 @@ fn load_runtime_for_target(ctxt: LLVMContextRef,
 }
 
 fn dump_module_ir<W: std::io::Write>(module: LLVMModuleRef, mut out: W) {
-    extern "C" fn module_ir_printer<W: std::io::Write>(src: *const u8,
-                                                       size: libc::size_t,
-                                                       state: *mut libc::c_void)
-                                                       -> libc::c_int {
+    extern "C" fn module_ir_printer<W: std::io::Write>(
+        src: *const u8,
+        size: libc::size_t,
+        state: *mut libc::c_void,
+    ) -> libc::c_int {
         let (src, out) = unsafe { (slice::from_raw_parts(src, size), &mut *(state as *mut W)) };
         // Cannot unwrap here; panic must not cross FFI boundary.
         let _res = out.write_all(src);
@@ -588,19 +638,23 @@ fn dump_module_ir<W: std::io::Write>(module: LLVMModuleRef, mut out: W) {
     }
 
     unsafe {
-        PrintModuleIR(module,
-                      module_ir_printer::<W>,
-                      &mut out as *mut W as *mut libc::c_void);
+        PrintModuleIR(
+            module,
+            module_ir_printer::<W>,
+            &mut out as *mut W as *mut libc::c_void,
+        );
     }
 }
 
 fn verify_module(llmod: LLVMModuleRef) {
     if cfg!(debug_assertions) {
         unsafe {
-            use llvm::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction};
-            LLVMVerifyModule(llmod,
-                             LLVMVerifierFailureAction::LLVMPrintMessageAction,
-                             ptr::null_mut());
+            use llvm::analysis::{LLVMVerifierFailureAction, LLVMVerifyModule};
+            LLVMVerifyModule(
+                llmod,
+                LLVMVerifierFailureAction::LLVMPrintMessageAction,
+                ptr::null_mut(),
+            );
         }
     }
 }
