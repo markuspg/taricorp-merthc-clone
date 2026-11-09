@@ -42,7 +42,9 @@ fn build_cpp_helpers() {
         .output()
         .expect("Failed to execute llvm-config")
         .stdout;
-    let cfg = str::from_utf8(&cfg).expect("llvm-config emitted invalid UTF-8");
+    let cfg = str::from_utf8(&cfg)
+        .expect("llvm-config emitted invalid UTF-8")
+        .trim();
 
     let mut cc = gcc::Config::new();
     for word in cfg.split(' ').filter(|s| s.len() > 0) {
