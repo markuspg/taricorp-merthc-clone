@@ -11,10 +11,10 @@ env_logger = "0.11"
 llvm-sys = "40"
 libc = "0.2"
 log = "0.4"
-phf = "0.7"
+phf = "0.14"
 tempfile = "3"
 serde = { version = "1.0.229", features = ["derive"] }
 
 [build-dependencies]
 cc = "1.11.1"
-phf_codegen = "0.7"
+phf_codegen = "0.14"
