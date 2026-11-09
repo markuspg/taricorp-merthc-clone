@@ -445,7 +445,7 @@ fn optimize_lto(llmod: LLVMModuleRef, externals: &[&[u8]]) -> LLVMModuleRef {
     // Mark all functions except externals as private
     unsafe {
         let mut func = LLVMGetFirstFunction(llmod);
-        while func != ptr::null_mut() {
+        while !func.is_null() {
             let func_name = CStr::from_ptr(LLVMGetValueName(func));
             if !externals.contains(&func_name.to_bytes()) {
                 debug!(
@@ -459,7 +459,7 @@ fn optimize_lto(llmod: LLVMModuleRef, externals: &[&[u8]]) -> LLVMModuleRef {
         }
 
         let mut glob = LLVMGetFirstGlobal(llmod);
-        while glob != ptr::null_mut() {
+        while !glob.is_null() {
             let glob_name = CStr::from_ptr(LLVMGetValueName(glob));
             if !externals.contains(&glob_name.to_bytes()) {
                 debug!(
@@ -509,7 +509,7 @@ fn optimize_module(llmod: LLVMModuleRef) -> LLVMModuleRef {
         // Iterate over functions, running the FPM over each
         LLVMInitializeFunctionPassManager(fpm);
         let mut func = LLVMGetFirstFunction(llmod);
-        while func != ptr::null_mut() {
+        while !func.is_null() {
             LLVMRunFunctionPassManager(fpm, func);
             func = LLVMGetNextFunction(func);
         }
@@ -600,7 +600,7 @@ fn load_runtime_for_target(
 
     for irmod in RT_SOURCES {
         debug!("Loading a module from RT_SOURCES");
-        let mut llmod = try!(module_from_blob(ctxt, irmod));
+        let mut llmod = module_from_blob(ctxt, irmod)?;
         if optimize {
             llmod = optimize_module(llmod)
         }
@@ -616,7 +616,7 @@ fn load_runtime_for_target(
         Some(s) => *s,
         None => return Err(RuntimeLoadError::NoSuchPlatform),
     };
-    let mut target_rt = try!(module_from_blob(ctxt, target_rt_source));
+    let mut target_rt = module_from_blob(ctxt, target_rt_source)?;
     if optimize {
         target_rt = optimize_module(target_rt);
     }

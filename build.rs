@@ -41,7 +41,7 @@ fn generate_runtime() {
     rt_file!(phf, "x86_64-unknown-linux-gnu", "linux-x86_64");
 
     phf.build(&mut file).unwrap();
-    write!(&mut file, ";\n").unwrap();
+    writeln!(&mut file, ";").unwrap();
 }
 
 fn build_cpp_helpers() {
@@ -55,7 +55,7 @@ fn build_cpp_helpers() {
         .trim();
 
     let mut cc = gcc::Config::new();
-    for word in cfg.split(' ').filter(|s| s.len() > 0) {
+    for word in cfg.split(' ').filter(|s| !s.is_empty()) {
         cc.flag(word);
     }
 
