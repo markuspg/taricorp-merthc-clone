@@ -126,7 +126,7 @@ fn main() {
     };
 
     let mut s = String::new();
-    let mut infile: Box<Read> = match inpath {
+    let mut infile: Box<dyn Read> = match inpath {
         None => Box::new(std::io::stdin()),
         Some(p) => Box::new(File::open(p).expect("Failed to open input file")),
     };
