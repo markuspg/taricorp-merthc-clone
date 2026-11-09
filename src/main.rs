@@ -39,7 +39,7 @@ extern "C" {
     );
 }
 
-const USAGE: &'static str = "
+const USAGE: &str = "
 Usage: merthc [options] [<source>]
        merthc --help
 
@@ -574,7 +574,7 @@ fn membuf_as_slice(mbuf: &LLVMMemoryBufferRef) -> &[u8] {
 // PHF mapping for target->runtime module files
 include!(concat!(env!("OUT_DIR"), "/rt_map.rs"));
 // Non-target-dependent files
-static RT_SOURCES: &'static [&'static [u8]] = &[include_bytes!("../runtime/random.ll")];
+static RT_SOURCES: &[&[u8]] = &[include_bytes!("../runtime/random.ll")];
 
 #[derive(Debug)]
 enum RuntimeLoadError {
