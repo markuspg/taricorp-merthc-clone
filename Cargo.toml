@@ -2,7 +2,7 @@
 name = "merthc"
 version = "0.2.0"
 authors = ["Peter Marheine <peter@taricorp.net>"]
-rust-version = "1.71"
+rust-version = "1.85"
 build = "build.rs"
 
 [dependencies]
