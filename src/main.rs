@@ -407,12 +407,14 @@ fn module_from_blob(ctxt: LLVMContextRef, code: &[u8]) -> Result<LLVMModuleRef, 
             1,
         );
 
-        let mut module: LLVMModuleRef = mem::uninitialized();
-        let mut err_msg: *mut i8 = mem::uninitialized();
+        let mut module = mem::MaybeUninit::uninit();
+        let mut err_msg = mem::MaybeUninit::uninit();
 
         // ParseIRInContext takes ownership of the input memory buffer.
         // We should not dispose of it.
-        let result = LLVMParseIRInContext(ctxt, mbuf, &mut module, &mut err_msg);
+        let result = LLVMParseIRInContext(ctxt, mbuf, module.as_mut_ptr(), err_msg.as_mut_ptr());
+        let module = module.assume_init();
+        let err_msg = err_msg.assume_init();
 
         if result != 0 {
             Err(CStr::from_ptr(err_msg).to_string_lossy().into_owned())
@@ -540,8 +542,9 @@ fn write_target_code<W: std::io::Write>(
 
     let triple = triple.as_ptr();
     unsafe {
-        let mut target = mem::uninitialized();
-        LLVMGetTargetFromTriple(triple, &mut target, ptr::null_mut());
+        let mut target = mem::MaybeUninit::uninit();
+        LLVMGetTargetFromTriple(triple, target.as_mut_ptr(), ptr::null_mut());
+        let target = target.assume_init();
         let tm = LLVMCreateTargetMachine(
             target,
             triple,
@@ -552,8 +555,9 @@ fn write_target_code<W: std::io::Write>(
             LLVMCodeModelDefault,
         );
 
-        let mut mbuf: LLVMMemoryBufferRef = mem::uninitialized();
-        LLVMTargetMachineEmitToMemoryBuffer(tm, llmod, ty, ptr::null_mut(), &mut mbuf);
+        let mut mbuf = mem::MaybeUninit::uninit();
+        LLVMTargetMachineEmitToMemoryBuffer(tm, llmod, ty, ptr::null_mut(), mbuf.as_mut_ptr());
+        let mbuf = mbuf.assume_init();
         let out = w.write_all(membuf_as_slice(&mbuf));
 
         LLVMDisposeMemoryBuffer(mbuf);
