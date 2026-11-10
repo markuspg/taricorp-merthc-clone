@@ -1,14 +1,13 @@
-extern crate docopt;
+extern crate clap;
 extern crate env_logger;
 extern crate libc;
 #[macro_use]
 extern crate log;
 extern crate llvm_sys as llvm;
 extern crate phf;
-extern crate serde;
 extern crate tempfile;
 
-use docopt::Docopt;
+use clap::{Parser, ValueEnum};
 use std::ffi::{CStr, CString};
 use std::fs::{File, OpenOptions};
 use std::io::Read;
@@ -39,32 +38,27 @@ extern "C" {
     );
 }
 
-const USAGE: &str = "
-Usage: merthc [options] [<source>]
-       merthc --help
-
-    If <source> is not specified, read source code from standard input.
-
-Options:
-    -h, --help      Show this message.
-    --emit TYPE     Build output of TYPE. Valid values: asm, ir, obj, link.
-                    Default: link.
-    --no-opt        Disable optimization (default enabled).
-    -o OUTFILE      Write output to OUTFILE.
-    --no-rt         Do not link the runtime library. Default enabled,
-                    incompatible with --emit link.
-";
-
-#[derive(Debug, serde::Deserialize)]
+/// If <source> is not specified, read source code from standard input.
+#[derive(Debug, Parser)]
+#[command(name = "merthc", infer_long_args = true)]
 struct Args {
-    flag_emit: Option<Emit>,
-    flag_no_opt: Option<bool>,
-    flag_no_rt: Option<bool>,
-    arg_source: Option<String>,
-    arg_outfile: Option<String>,
+    /// Build output of TYPE. Default: link.
+    #[arg(long, value_name = "TYPE", value_enum, ignore_case = true)]
+    emit: Option<Emit>,
+    /// Disable optimization (default enabled).
+    #[arg(long)]
+    no_opt: bool,
+    /// Do not link the runtime library. Default enabled, incompatible with
+    /// --emit link.
+    #[arg(long)]
+    no_rt: bool,
+    source: Option<String>,
+    /// Write output to OUTFILE.
+    #[arg(short = 'o', value_name = "OUTFILE")]
+    outfile: Option<String>,
 }
 
-#[derive(PartialEq, Eq, Debug, serde::Deserialize)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, ValueEnum)]
 enum Emit {
     Asm,
     Ir,
@@ -75,21 +69,26 @@ enum Emit {
 fn main() {
     env_logger::init();
     let Args {
-        flag_no_opt: no_optimize,
-        flag_no_rt: no_rt,
-        flag_emit: emit,
-        arg_source: inpath,
-        arg_outfile: outpath,
-    } = Docopt::new(USAGE)
-        .expect("USAGE string is invalid")
-        .help(true)
-        .argv(std::env::args())
-        .deserialize()
-        .unwrap_or_else(|e| e.exit());
+        no_opt: no_optimize,
+        no_rt,
+        emit,
+        source: inpath,
+        outfile: _,
+    } = Args::try_parse().unwrap_or_else(|e| {
+        // Keep docopt's exit code of 1 for usage errors (clap uses 2).
+        if e.use_stderr() {
+            let _ = e.print();
+            std::process::exit(1);
+        }
+        e.exit()
+    });
+    // The docopt-based parser never propagated `-o` (its struct field did not
+    // match the option's key), so the option is accepted but ignored.
+    let outpath: Option<String> = None;
 
     let emit = emit.unwrap_or(Emit::Link);
-    let optimize = !no_optimize.unwrap_or(false);
-    let use_runtime = !no_rt.unwrap_or(false);
+    let optimize = !no_optimize;
+    let use_runtime = !no_rt;
     if emit == Emit::Link && !use_runtime {
         panic!("--no-rt and --emit link options may not be used together");
     };
