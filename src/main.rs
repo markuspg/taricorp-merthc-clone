@@ -357,14 +357,8 @@ fn compile_merthese<I: Iterator<Item = char>>(
                         b,
                         ty_rt_rand_inrange,
                         rt_rand_inrange,
-                        [LLVMConstAdd(
-                            LLVMConstFPToUI(
-                                LLVMConstReal(LLVMFloatTypeInContext(ctxt), 13.4),
-                                ty_i8,
-                            ),
-                            v_1i8,
-                        )]
-                        .as_ptr() as *mut _,
+                        // Upper bound is exclusive: floor(13.4) + 1 = 14
+                        [LLVMConstInt(ty_i8, (13.4f32 as u64) + 1, 0)].as_ptr() as *mut _,
                         1,
                         b"\0".as_ptr() as *const _,
                     );
@@ -448,8 +442,6 @@ fn link_modules(main: LLVMModuleRef, other: LLVMModuleRef) -> LLVMModuleRef {
 /// all others will be marked as private, enabling better inlining and eliminating
 /// any symbols that need not be present in the output.
 fn optimize_lto(llmod: LLVMModuleRef, externals: &[&[u8]]) -> LLVMModuleRef {
-    use llvm::transforms::pass_manager_builder::*;
-
     // Mark all functions except externals as private
     unsafe {
         let mut func = LLVMGetFirstFunction(llmod);
@@ -485,56 +477,35 @@ fn optimize_lto(llmod: LLVMModuleRef, externals: &[&[u8]]) -> LLVMModuleRef {
         }
     }
 
-    unsafe {
-        let pm = LLVMCreatePassManager();
-        let pmb = LLVMPassManagerBuilderCreate();
-        LLVMPassManagerBuilderPopulateLTOPassManager(
-            pmb, pm, 1, // Internalize
-            1,
-        ); // Run inliner
-        LLVMPassManagerBuilderDispose(pmb);
-
-        LLVMRunPassManager(pm, llmod);
-        LLVMDisposePassManager(pm);
-    }
+    run_passes(llmod, b"lto<O2>\0");
     llmod
 }
 
 /// Run single-module optimizations over `llmod`.
 fn optimize_module(llmod: LLVMModuleRef) -> LLVMModuleRef {
-    use llvm::transforms::pass_manager_builder::*;
+    run_passes(llmod, b"default<O2>\0");
+    llmod
+}
+
+/// Run the new pass manager pipeline described by `pipeline` (a NUL-terminated
+/// pass pipeline string as accepted by `opt -passes=...`) over `llmod`.
+fn run_passes(llmod: LLVMModuleRef, pipeline: &[u8]) {
+    use llvm::error::{LLVMDisposeErrorMessage, LLVMGetErrorMessage};
+    use llvm::transforms::pass_builder::*;
 
     unsafe {
-        // Per clang and rustc, we want to use both kinds.
-        let fpm = LLVMCreateFunctionPassManagerForModule(llmod);
-        let mpm = LLVMCreatePassManager();
-
-        // Populate the pass managers with passes
-        let pmb = LLVMPassManagerBuilderCreate();
-        LLVMPassManagerBuilderSetOptLevel(pmb, 2);
+        let opts = LLVMCreatePassBuilderOptions();
         // Magic threshold from Clang for -O2
-        LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 225);
-        LLVMPassManagerBuilderPopulateModulePassManager(pmb, mpm);
-        LLVMPassManagerBuilderPopulateFunctionPassManager(pmb, fpm);
-        LLVMPassManagerBuilderDispose(pmb);
+        LLVMPassBuilderOptionsSetInlinerThreshold(opts, 225);
+        let err = LLVMRunPasses(llmod, pipeline.as_ptr() as *const _, ptr::null_mut(), opts);
+        LLVMDisposePassBuilderOptions(opts);
 
-        // Iterate over functions, running the FPM over each
-        LLVMInitializeFunctionPassManager(fpm);
-        let mut func = LLVMGetFirstFunction(llmod);
-        while !func.is_null() {
-            LLVMRunFunctionPassManager(fpm, func);
-            func = LLVMGetNextFunction(func);
+        if !err.is_null() {
+            let msg = LLVMGetErrorMessage(err);
+            let text = CStr::from_ptr(msg).to_string_lossy().into_owned();
+            LLVMDisposeErrorMessage(msg);
+            panic!("running optimization passes failed: {}", text);
         }
-        LLVMFinalizeFunctionPassManager(fpm);
-
-        // Run the MPM over the module
-        LLVMRunPassManager(mpm, llmod);
-
-        // Clean up managers
-        LLVMDisposePassManager(fpm);
-        LLVMDisposePassManager(mpm);
-
-        llmod
     }
 }
 

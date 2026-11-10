@@ -34,6 +34,8 @@ fn generate_runtime() {
     let mut phf = phf_codegen::Map::new();
 
     rt_file!(phf, "x86_64-unknown-linux-gnu", "linux-x86_64");
+    // Default triple of Fedora/RHEL-provided LLVM
+    rt_file!(phf, "x86_64-redhat-linux-gnu", "linux-x86_64");
 
     write!(
         &mut file,

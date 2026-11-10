@@ -28,7 +28,7 @@ define i64 @rand() {
 define i8 @rand_inrange(i8 %max0) {
     %1 = call i64 @rand()
     %2 = uitofp i64 %1 to double
-    %3 = fdiv fast double %2, uitofp(i65 shl(i65 1, i65 64) to double)
+    %3 = fdiv fast double %2, 0x43F0000000000000 ; 2^64
     ; %3 is in range [0, 1)
     %max = uitofp i8 %max0 to double
     %4 = fmul fast double %3, %max
