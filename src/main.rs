@@ -73,7 +73,7 @@ fn main() {
         no_rt,
         emit,
         source: inpath,
-        outfile: _,
+        outfile: outpath,
     } = Args::try_parse().unwrap_or_else(|e| {
         // Keep docopt's exit code of 1 for usage errors (clap uses 2).
         if e.use_stderr() {
@@ -82,9 +82,6 @@ fn main() {
         }
         e.exit()
     });
-    // The docopt-based parser never propagated `-o` (its struct field did not
-    // match the option's key), so the option is accepted but ignored.
-    let outpath: Option<String> = None;
 
     let emit = emit.unwrap_or(Emit::Link);
     let optimize = !no_optimize;
