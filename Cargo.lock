@@ -156,12 +156,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c66915cc5391097de7a2b0b972e8505aa33c0df401fd3a6811dbdb32881ba48"
 
 [[package]]
-name = "gcc"
-version = "0.3.45"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40899336fb50db0c78710f53e87afc54d8c7266fb76262fecc78ca1a7f09deae"
-
-[[package]]
 name = "getrandom"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -249,11 +243,11 @@ checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
 name = "llvm-sys"
-version = "40.0.1"
+version = "40.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cda6384f13044e8c721be4c7d557618bd8c7dc34fb5c134727d9581c835ab4bf"
+checksum = "a7ea137d31b623679e01ae7028ee4395968b95ad9746ee21d141c714389a3425"
 dependencies = [
- "gcc",
+ "cc",
  "lazy_static 0.2.8",
  "libc",
  "regex 0.2.1",
