@@ -256,7 +256,8 @@ fn ptr_to_const(
         let g = LLVMAddGlobal(llmod, ty, name.as_ptr() as *const _);
         LLVMSetInitializer(g, value);
         LLVMSetGlobalConstant(g, 1);
-        LLVMConstInBoundsGEP(
+        LLVMConstInBoundsGEP2(
+            ty,
             g,
             [LLVMConstInt(
                 LLVMIntTypeInContext(LLVMGetModuleContext(llmod), 8),
@@ -319,8 +320,9 @@ fn compile_merthese<I: Iterator<Item = char>>(
             match c {
                 'm' => {
                     // Print "merth"
-                    LLVMBuildCall(
+                    LLVMBuildCall2(
                         b,
+                        ty_rt_print,
                         rt_print,
                         [v_merth, v_5i8].as_ptr() as *mut _,
                         2,
@@ -329,8 +331,9 @@ fn compile_merthese<I: Iterator<Item = char>>(
                 }
                 'e' => {
                     // Print a newline
-                    LLVMBuildCall(
+                    LLVMBuildCall2(
                         b,
+                        ty_rt_print,
                         rt_print,
                         [v_newline, v_1i8].as_ptr() as *mut _,
                         2,
@@ -339,8 +342,9 @@ fn compile_merthese<I: Iterator<Item = char>>(
                 }
                 'r' => {
                     // Print a space
-                    LLVMBuildCall(
+                    LLVMBuildCall2(
                         b,
+                        ty_rt_print,
                         rt_print,
                         [v_space, v_1i8].as_ptr() as *mut _,
                         2,
@@ -349,8 +353,9 @@ fn compile_merthese<I: Iterator<Item = char>>(
                 }
                 't' => {
                     // Print a random string of length in range [0, 13.4]
-                    let v_len = LLVMBuildCall(
+                    let v_len = LLVMBuildCall2(
                         b,
+                        ty_rt_rand_inrange,
                         rt_rand_inrange,
                         [LLVMConstAdd(
                             LLVMConstFPToUI(
@@ -363,8 +368,9 @@ fn compile_merthese<I: Iterator<Item = char>>(
                         1,
                         b"\0".as_ptr() as *const _,
                     );
-                    LLVMBuildCall(
+                    LLVMBuildCall2(
                         b,
+                        ty_rt_rand_string,
                         rt_rand_string,
                         [v_len].as_ptr() as *mut _,
                         1,
@@ -448,7 +454,9 @@ fn optimize_lto(llmod: LLVMModuleRef, externals: &[&[u8]]) -> LLVMModuleRef {
     unsafe {
         let mut func = LLVMGetFirstFunction(llmod);
         while !func.is_null() {
-            let func_name = CStr::from_ptr(LLVMGetValueName(func));
+            let mut length = mem::MaybeUninit::uninit();
+            let func_name = CStr::from_ptr(LLVMGetValueName2(func, length.as_mut_ptr()));
+            let _length = length.assume_init();
             if !externals.contains(&func_name.to_bytes()) {
                 debug!(
                     "Marking function {} as private in LTO",
@@ -462,7 +470,9 @@ fn optimize_lto(llmod: LLVMModuleRef, externals: &[&[u8]]) -> LLVMModuleRef {
 
         let mut glob = LLVMGetFirstGlobal(llmod);
         while !glob.is_null() {
-            let glob_name = CStr::from_ptr(LLVMGetValueName(glob));
+            let mut length = mem::MaybeUninit::uninit();
+            let glob_name = CStr::from_ptr(LLVMGetValueName2(glob, length.as_mut_ptr()));
+            let _length = length.assume_init();
             if !externals.contains(&glob_name.to_bytes()) {
                 debug!(
                     "Marking global {} as private in LTO",
